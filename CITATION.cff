@@ -22,7 +22,7 @@ authors:
     affiliation: "The University of Melbourne"
 year: 2025
 license: Apache-2.0
-repository-code: "https://github.com/<your-org>/EnergyServe"
+repository-code: "https://github.com/Wangzhuopeng/EnergyServe-TSC"
 preferred-citation:
   type: article
   title: "EnergyServe: Energy-Efficient LLM Inference Serving via Resource Characterization to Achieve Optimal Energy-Delay Product"

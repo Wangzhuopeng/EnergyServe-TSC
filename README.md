@@ -83,7 +83,7 @@ Requires an NVIDIA GPU (Ampere or newer recommended, e.g. A800/A100) with the
 NVIDIA driver and NVML available; power capping uses `nvidia-smi -pl` / NVML.
 
 ```bash
-git clone https://github.com/<your-org>/EnergyServe.git
+git clone https://github.com/Wangzhuopeng/EnergyServe-TSC.git
 cd EnergyServe
 pip install -r requirements.txt
 ```
