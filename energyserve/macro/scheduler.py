@@ -1,13 +1,17 @@
 import time
 import asyncio
 
+from .policy import EAPSPolicy
+
 class EnergyServeScheduler:
     """
-    Macro-Scheduler implementing the Starvation-Free Shortest Job First (SJF) algorithm.
-    
-    Paper Reference: Section 3.3, Algorithm 1.
-    Core Logic: Reshapes the request queue to create stable execution phases while 
-    preventing long-tail latency degradation via an aging mechanism.
+    Macro-Scheduler implementing the EAPS workload-reshaping policy (Algorithm 1).
+
+    Paper Reference: Section 4.2, Algorithm 1.
+    Core Logic: Reshapes the request queue to create stable execution phases while
+    preventing long-tail latency degradation via an aging mechanism. The priority
+    score itself is delegated to :class:`~energyserve.macro.policy.EAPSPolicy`
+    (Eq. 8); this class owns only the queue mechanics (admission, sorting, pop).
     """
     def __init__(self, config):
         """
@@ -15,14 +19,15 @@ class EnergyServeScheduler:
             config (dict): The loaded 'core_config.yaml' dictionary.
         """
         self.cfg = config
-        # Load the aging factor from config (e.g., 50.0)
-        self.aging_factor = config['scheduler']['aging_factor']
-        
+        # EAPS priority score (expected cost - beta * aging); Eq. 8.
+        self.policy = EAPSPolicy(config)
+
         self.waiting_queue = []
-        
+
         # Flags to coordinate system shutdown
         self.done_submit = False
         self.done_event = asyncio.Event()
+
 
     def add_request(self, req):
         """
@@ -42,26 +47,19 @@ class EnergyServeScheduler:
 
     def resort_queue(self):
         """
-        The core SJF + Aging sorting logic (Eq 8 in the paper).
-        
-        Priority Score = Expected_Cost - (Waiting_Time * Aging_Factor)
-        
-        - Expected_Cost: The predicted output length from Perception Model.
-        - Waiting_Time: Current Time - Enqueue Time.
-        - Aging_Factor: Weight to balance efficiency (throughput) and fairness.
-        
-        Result: Short jobs go first, but old jobs eventually bubble up.
+        Reshape the queue by EAPS priority (Eq. 8); lower score == higher priority.
+
+        The per-request score (expected cost minus aging decay) is computed by
+        :class:`~energyserve.macro.policy.EAPSPolicy`. Result: short jobs go
+        first, but long-waiting jobs eventually bubble up (anti-starvation).
         """
         if not self.waiting_queue:
             return
 
         now = time.time()
-        
+
         # Sort in-place. Python's sort is stable (Timsort).
-        # Lower score = Higher Priority (Executed first).
-        self.waiting_queue.sort(
-            key=lambda x: x.expected_out_len - (now - x.enqueue_time) * self.aging_factor
-        )
+        self.waiting_queue.sort(key=lambda r: self.policy.score(r, now))
 
     def pop_next(self):
         """

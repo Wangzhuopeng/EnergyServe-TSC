@@ -1,107 +1,75 @@
+"""Micro-Governor: the token-step DVFS controller (Algorithm 2).
+
+This module is the orchestrator of the micro layer. It composes three
+single-responsibility components, each mapping to a part of Algorithm 2:
+
+    BatchStateProbe  (state.py)     -> build s_t            (lines 1-2)
+    ThreeTierPowerPolicy (policy.py)-> choose target power  (lines 3-8, Eq. 11)
+    PowerActuator    (actuator.py)  -> smooth + apply        (lines 9-10, Eq. 12)
+
+The governor itself only handles the control cadence (rate gating) and wires the
+components together, so the perception/decision/actuation concerns stay isolated
+and independently testable.
+"""
 import time
-import subprocess
+
+from .state import BatchStateProbe
+from .policy import ThreeTierPowerPolicy
+from .actuator import PowerActuator
+
 
 class EnergyServeGovernor:
-    """
-    Micro-Governor implementing Algorithm 2: Adaptive DVFS Control.
-    
-    Responsibilities:
-    1. Monitor real-time workload characteristics (Phase detection).
-    2. Determine optimal power limit based on the three-tier strategy (A/B/C).
-    3. Apply power constraints via hardware interface (nvidia-smi) with smoothing.
-    """
+    """Event-driven adaptive-DVFS governor (Algorithm 2)."""
+
     def __init__(self, config):
         """
         Args:
             config (dict): The loaded 'core_config.yaml'.
         """
-        self.sys_cfg = config['system']
-        self.sched_cfg = config['scheduler']
-        self.gov_cfg = config['governor']
-        
-        # Initialize at Turbo (High Performance) state
-        self.current_limit = self.gov_cfg['power_turbo']
+        self.gov_cfg = config["governor"]
+
+        # Single-responsibility components (perception -> decision -> actuation).
+        self.probe = BatchStateProbe(config)
+        self.policy = ThreeTierPowerPolicy(config)
+        self.actuator = PowerActuator(config)
+
         self.last_step_time = time.time()
 
+    @property
+    def current_limit(self):
+        """Active GPU power limit (W); read by the engine's status logger."""
+        return self.actuator.current_limit
+
     def adjust(self, running_reqs):
-        """
-        Main control loop triggered at each step.
-        Calculates metrics and adjusts GPU power limit if necessary.
-        
+        """Control step: profile the live batch and retune the power limit.
+
+        Triggered once per token-generation step by the engine. Rate-gated to
+        the configured ``step_interval`` to avoid di/dt churn.
+
         Args:
-            running_reqs (list): List of currently executing request objects.
+            running_reqs (list): Currently executing request objects.
         """
-        # 0. Check Feature Flag
-        if not self.gov_cfg['enable']:
+        # 0. Feature flag.
+        if not self.gov_cfg["enable"]:
             return
 
-        # 1. Frequency Control (e.g., every 0.6s)
+        # 1. Control cadence: act at most once per step_interval.
         now = time.time()
-        if now - self.last_step_time < self.gov_cfg['step_interval']:
+        if now - self.last_step_time < self.gov_cfg["step_interval"]:
             return
 
-        total_running = len(running_reqs)
-        if total_running == 0:
+        # 2. Perception: build the live batch state s_t (Alg. 2, lines 1-2).
+        state = self.probe.probe(running_reqs)
+        if state is None:
             return
 
-        # 2. Calculate Real-time Metrics (Phase Detection)
-        max_concur = self.sys_cfg['max_concurrency']
-        long_threshold = self.sched_cfg['long_task_threshold']
-        
-        # Concurrency Ratio: How full is the batch?
-        concurrency_ratio = total_running / max_concur
-        
-        # Long Task Ratio: Is this a memory-bound decoding phase?
-        long_cnt = sum(1 for r in running_reqs if r.expected_out_len >= long_threshold)
-        long_ratio = long_cnt / total_running
-        
-        # 3. Determine Target Power Goal (Three-Tier Strategy)
-        # Default: Turbo Mode (Compute-bound Prefill / Mixed)
-        target_goal = self.gov_cfg['power_turbo']
-        
-        # Strategy C: Harvesting Phase (Stable Memory-bound)
-        # Trigger: High ratio of long decoding tasks
-        if long_ratio > self.gov_cfg['ratio_threshold_harvest']:
-            target_goal = self.gov_cfg['power_eco'] # e.g., 180W
-            
-        # Strategy B: Idle Phase (Near-empty queue)
-        # Trigger: Very low concurrency
-        elif total_running < 2:
-            target_goal = self.gov_cfg['power_idle'] # e.g., 150W
-            
-        # Strategy A: Stability Phase (High Concurrency)
-        # Trigger: Batch is nearly full, lower voltage to reduce heat/jitter
-        elif concurrency_ratio > self.gov_cfg['ratio_threshold_stable']:
-            target_goal = self.gov_cfg['power_stable'] # e.g., 220W
+        # 3. Decision: three-tier power policy (Alg. 2, lines 3-8).
+        target = self.policy.target_power(state)
 
-        # 4. Smooth Actuation (Gradient Descent)
-        # Avoid sudden voltage spikes (dI/dt noise) by moving in small steps
-        step_size = self.gov_cfg['step_size']
-        new_limit = self.current_limit
-        
-        if self.current_limit > target_goal:
-            new_limit = max(target_goal, self.current_limit - step_size)
-        elif self.current_limit < target_goal:
-            new_limit = min(target_goal, self.current_limit + step_size)
-
-        # 5. Apply Hardware Constraint
-        if new_limit != self.current_limit:
-            self._apply_limit(new_limit)
-            self.current_limit = new_limit
-            self.last_step_time = now
-
-    def _apply_limit(self, limit):
-        """Invoke nvidia-smi to set the power limit."""
-        try:
-            subprocess.run(
-                ["nvidia-smi", "-pl", str(int(limit))], 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL
-            )
-        except Exception as e:
-            # Log error but don't crash the engine
-            print(f"Hardware Error: Failed to set power limit: {e}")
+        # 4. Actuation: slew-rate smoothing + driver enforcement (lines 9-10).
+        self.actuator.actuate(target)
+        self.last_step_time = now
 
     def reset(self):
-        """Reset GPU to default high performance mode."""
-        self._apply_limit(self.gov_cfg['power_turbo'])
+        """Restore the GPU to the default high-performance state."""
+        self.actuator.reset()

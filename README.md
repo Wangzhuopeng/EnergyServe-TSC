@@ -46,11 +46,19 @@ on every device.
 
 ```text
 EnergyServe/
-├── energyserve/            # Core framework
-│   ├── core/               # Async engine + request orchestration (Algorithm 3)
-│   ├── macro/              # EAPS macro-scheduler: SJF + aging (Algorithm 1)
-│   ├── micro/              # Adaptive DVFS micro-governor (Algorithm 2)
-│   └── utils/              # Logger, energy monitor (NVML), analyzer
+├── energyserve/            # Core framework (three-pillar architecture)
+│   ├── core/               # Cross-level closed-loop engine (Algorithm 3)
+│   │   ├── engine.py       #   feedback loop: schedule -> govern -> generate
+│   │   └── request.py      #   request record carried through the pipeline
+│   ├── macro/              # EAPS workload reshaping (Algorithm 1)
+│   │   ├── policy.py       #   EAPS priority score  E[W] - beta*aging (Eq. 8)
+│   │   └── scheduler.py    #   queue mechanics: admission, sort, pop
+│   ├── micro/              # Adaptive DVFS governance (Algorithm 2)
+│   │   ├── state.py        #   live batch-state probe  s_t       (lines 1-2)
+│   │   ├── policy.py       #   three-tier power policy           (lines 3-8, Eq. 11)
+│   │   ├── actuator.py     #   slew-rate smoothing + NVML actuation (lines 9-10)
+│   │   └── governor.py     #   orchestrates probe -> policy -> actuator
+│   └── utils/              # NVML energy monitor, logger, analyzer
 ├── baselines/              # Five reproduced baselines (scheduler + governor)
 │   ├── vllm_base/          #   Vanilla vLLM (FCFS @ peak power)
 │   ├── fixed_power/        #   Static 150 W power cap
