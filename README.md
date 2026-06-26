@@ -27,7 +27,7 @@ real-time hardware power states for fine-grained DVFS.
 EnergyServe couples three stages into a closed loop:
 
 1. **Resource Characterization** (Perception) — a lightweight LoRA adapter on
-   Gemma-2B predicts per-request resource demand from the prompt alone, exposing
+   Gemma-2B-it predicts per-request resource demand from the prompt alone, exposing
    "deceptive short-input / long-output" requests *before* admission.
 2. **Macro-Scheduling — EAPS** (`energyserve/macro/`) — an Expected-cost-guided
    Anti-starvation Priority Selection policy reorders the queue: prefills are
@@ -100,12 +100,17 @@ python scripts/analyze_workload_distribution.py --dataset lmsys
 ### 3. Resource-Characterization Model
 
 ```bash
-# Train the per-request resource predictor (Gemma-2B + LoRA)
+# Train the per-request resource predictor (Gemma-2B-it + LoRA)
 python scripts/train_predictor.py --dataset dolly
 
 # Evaluate bucket-classification accuracy
 python scripts/eval_predictor.py --dataset dolly
 ```
+
+> The paper additionally compares the profiler against a larger ChatGLM2-6B model
+> (Appendix, profiler-accuracy figure). This repository ships the **Gemma-2B-it**
+> profiler that EnergyServe actually deploys; the ChatGLM comparison is a
+> reference baseline and is not included here.
 
 ### 4. Serving Experiments
 

@@ -107,7 +107,7 @@ def main():
         save_strategy="steps",
         save_steps=train_cfg['save_steps'],
         save_total_limit=train_cfg['save_total_limit'],
-        deepspeed=train_cfg['deedspeed_config'],
+        deepspeed=train_cfg['deepspeed_config'],
         gradient_checkpointing=True,
         group_by_length=True,
         report_to="tensorboard",
