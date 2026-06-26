@@ -1,0 +1,52 @@
+# ============================================================
+# EnergyServe System Configuration (Ours Only)
+# ============================================================
+
+
+system:
+ 
+  base_model_path: "Meta-Llama-3-8B-Instruct"
+  gpu_id: 0
+  # (Physical Batch Size Limit)
+  max_concurrency: 64
+  # (0.5 = 2x speed)
+  time_compression: 0.5
+
+# 2.  (Workloads)
+workloads:
+  lmsys: "./data/workload/lmsys_workload.jsonl"
+  alpaca: "./data/workload/alpaca_workload.jsonl"
+  dolly: "./data/workload/dolly_workload.jsonl"
+
+# 3.  (Macro-Scheduler: SJF + Aging)
+scheduler:
+  
+  policy: "SJF"
+
+  aging_factor: 50.0
+
+  long_task_threshold: 300
+  
+  # (Oracle SLO)
+  # Deadline = base + length * token_budget
+  slo_base: 13
+  slo_token: 3
+
+# 4. (Micro-Governor: Adaptive DVFS)
+governor:
+  # 
+  enable: true
+  
+  # 
+  power_turbo: 400  # High Performance
+  power_eco: 180    # Harvesting Phase (Strategy C)
+  power_idle: 150   # Idle Phase (Strategy B)
+  power_stable: 220 # Stability Phase (Strategy A)
+  
+  # 调节控制
+  step_size: 20      
+  step_interval: 0.6 
+  
+ 
+  ratio_threshold_harvest: 0.7
+  ratio_threshold_stable: 0.85

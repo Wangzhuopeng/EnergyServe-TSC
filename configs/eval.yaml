@@ -1,0 +1,33 @@
+# configs/eval.yaml
+
+# 1. Base Model Configuration
+model:
+  base_model: "google/gemma-2b-it"
+  max_model_len: 2048
+  max_lora_rank: 128
+  gpu_memory_utilization: 0.6
+  dtype: "bfloat16"
+
+# 2. Dataset-Specific Paths for Evaluation
+datasets:
+  lmsys:
+    test_path: "./data/lmsys-chat-1m/lmsys_test.jsonl"
+    lora_path: "./checkpoints/lmsys_lora/final_lora"
+    prompt_format: "lmsys"
+  alpaca:
+    test_path: "./data/alpaca/alpaca_pred_test.jsonl"
+    lora_path: "./checkpoints/alpaca_lora/final_lora"
+    prompt_format: "alpaca"
+  dolly:
+    test_path: "./data/databricks-dolly-15k/dolly_natural_test_2k.jsonl"
+    lora_path: "./checkpoints/dolly_lora/final_lora"
+    prompt_format: "dolly"
+
+# 3. Generation & Evaluation Parameters
+generation:
+  temperature: 0
+  max_tokens: 10
+  stop_tokens: ["<end_of_turn>"]
+
+metrics:
+  fuzzy_tolerance: 1 # ±1 Tolerance

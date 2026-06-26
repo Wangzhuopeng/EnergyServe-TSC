@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "EnergyServe: Energy-Efficient LLM Inference Serving via Resource Characterization to Achieve Optimal Energy-Delay Product"
+authors:
+  - family-names: Wang
+    given-names: Zhuopeng
+    affiliation: "Inner Mongolia University"
+  - family-names: Xu
+    given-names: Minxian
+    affiliation: "Shenzhen Institutes of Advanced Technology, Chinese Academy of Sciences"
+  - family-names: Wang
+    given-names: Yan
+    affiliation: "Inner Mongolia University"
+  - family-names: Ye
+    given-names: Kejiang
+    affiliation: "Shenzhen Institutes of Advanced Technology, Chinese Academy of Sciences"
+  - family-names: Liu
+    given-names: Zhenkun
+    affiliation: "Inner Mongolia University"
+  - family-names: Buyya
+    given-names: Rajkumar
+    affiliation: "The University of Melbourne"
+year: 2025
+license: Apache-2.0
+repository-code: "https://github.com/<your-org>/EnergyServe"
+preferred-citation:
+  type: article
+  title: "EnergyServe: Energy-Efficient LLM Inference Serving via Resource Characterization to Achieve Optimal Energy-Delay Product"
+  authors:
+    - family-names: Wang
+      given-names: Zhuopeng
+    - family-names: Xu
+      given-names: Minxian
+    - family-names: Wang
+      given-names: Yan
+    - family-names: Ye
+      given-names: Kejiang
+    - family-names: Liu
+      given-names: Zhenkun
+    - family-names: Buyya
+      given-names: Rajkumar
+  journal: "IEEE Transactions on Services Computing (under review)"
+  year: 2025
